@@ -1,31 +1,46 @@
 
 # coding: utf-8
 
-# In[240]:
+# In[197]:
 
 import numpy as np
-from numpy import exp, tanh, log
+from numpy import exp, tanh, log, cosh
 
 def sigmoid(x):
     return 1.0/(1.0+exp(-x))
 
+def d_sigmoid(x):
+    return exp(x)/(exp(x)+1.0)/(exp(x)+1.0)
+
 def reLU(x):
-    return max(0,x)
+    return max(0.0,x)
+
+def d_reLU(x):
+    if x>0:
+        return 1.0
+    else:
+        return 0.0
 
 def softplus(x):
-    return log(1+exp(x))
+    return log(1.0+exp(x))
+
+def d_softplus(x):
+    return 1.0/(1.0+exp(-x))
+
+def d_tanh(x):
+    return 4.0*cosh(x)*cosh(x)/(cosh(2.0*x)+1)/(cosh(2.0*x)+1)
     
 class neuron:
     def __init__(self, n_weights, activation_type='sigmoid', bias=0):   #supports linear, reLU, softplus, or sigmoid activations
         self.n_weights=np.array(n_weights)
         self.activation_type=activation_type
         self.bias=bias
-        self.weights=np.random.rand(n_weights) 
+        self.weights=np.random.rand(n_weights)
         
     def change_weights(self, weights_vector):
         weights_vector=list(weights_vector)
         if len(weights_vector)==self.n_weights:
-            self.weights=weights_vector
+            self.weights=np.array(weights_vector)
         else:
             print 'Failed to change neuron connection strengths, weights vector has incorrect format'
             
@@ -37,18 +52,42 @@ class neuron:
         if input_vector.size==self.n_weights:
             input_vector=np.array(input_vector)
             if self.activation_type=='sigmoid':
-                return sigmoid(sum(self.weights*input_vector))+self.bias
-            if self.activation_type=='tanh':
-                return tanh(sum(self.weights*input_vector))+self.bias
-            if self.activation_type=='reLU':
-                return reLU(sum(self.weights*input_vector))+self.bias
-            if self.activation_type=='linear':
-                return float(sum(self.weights*input_vector))+self.bias
+                self.output=sigmoid(sum(self.weights*input_vector))+self.bias
+                return self.output
+            elif self.activation_type=='tanh':
+                self.output=tanh(sum(self.weights*input_vector))+self.bias
+                return self.output
+            elif self.activation_type=='reLU':
+                self.output=reLU(sum(self.weights*input_vector))+self.bias
+                return self.output
+            elif self.activation_type=='linear':
+                self.output=float(sum(self.weights*input_vector))+self.bias
+                return self.output
+            elif self.activation_type=='softplus':
+                self.output=softplus(sum(self.weights*input_vector))+self.bias
+                return self.output
             else:
                 print 'Unknown activation function: '+self.activation_type
         else:
             print 'Activation input format incorrect'
             
+    def backprop(self, input_vector, step_size=0.01):
+        if self.activation_type=='sigmoid':
+            self.gradient=self.weights*d_sigmoid(sum(self.weights*input_vector))
+        elif self.activation_type=='tanh':
+            self.gradient=self.weights*d_tanh(sum(self.weights*input_vector))
+        elif self.activation_type=='reLU':
+            self.gradient=self.weights*d_reLU(sum(self.weights*input_vector))
+        elif self.activation_type=='linear':
+            self.gradient=self.weights*sum(self.weights*input_vector)
+        elif self.activation_type=='softplus':
+            self.gradient=self.weights*d_softplus(sum(self.weights*input_vector))
+        else:
+            print 'Unknown activation function: '+self.activation_type
+            return 0
+        self.weights=self.weights+step_size*self.gradient
+        return self.weights
+
 class layer(neuron):
     def __init__(self, n_neurons, n_weights_per_neuron, activation_type='sigmoid', bias_vector=0):
         self.n_neurons=n_neurons
@@ -130,13 +169,13 @@ class net():
         return out
 
 
-# In[356]:
+# In[202]:
 
-l1=layer(3, 1, activation_type='linear')
+l1=layer(10, 1, activation_type='linear')
 
-l2=layer(100, 3, activation_type='sigmoid')
+l2=layer(200, 10, activation_type='sigmoid')
 
-l3=layer(100, 100, activation_type='sigmoid')
+l3=layer(100, 200, activation_type='sigmoid')
 
 l4=layer(1, 100, activation_type='linear')
 
@@ -146,5 +185,12 @@ n.addlayer(l2)
 n.addlayer(l3)
 n.addlayer(l4)
 
-print n.activate([1,1,1])
+#print n.activate([1,1,1,1,1,1,1,1,1,1])
+
+n1=neuron(2,activation_type='sigmoid')
+print n1.activate([1,-2])
+n1.print_weights()
+n1.backprop([1,-2], step_size=0.1)
+print n1.gradient
+print n1.activate([1,-2])
 
